@@ -111,13 +111,6 @@ func swap{range_check_ptr}(
     assert new_state.token_a_balance = new_x
     assert new_state.token_b_balance = new_y
 
-    %{
-        print(
-            f'Swap: Account {ids.transaction.account_id} '
-            f'gave {ids.a} tokens of type_a and '
-            f'recieved {ids.b} tokens of type token_b.')
-    %}
-
     return (state=new_state)
 
 end
