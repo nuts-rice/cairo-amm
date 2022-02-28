@@ -1,6 +1,6 @@
 # Declare this file as a StarkNet contract and set the required
 # builtins.
-%builtins pedersen range_check
+%builtins output pedersen range_check
 
 from starkware.cairo.common.cairo_builtins import HashBuiltin
 from starkware.cairo.common.hash import hash2
@@ -31,6 +31,17 @@ end
 struct SwapTransaction:
        member account_id : felt
        member token_a_amount : felt
+end
+
+struct AmmBatchOutput:
+       #balances of AMM before/after applying batch
+       member token_a_before : felt
+       member token_b_before : felt
+       member token_a_after : felt
+       member token_b_after : felt
+       #account merkle roots
+       member account_root_before : felt
+       member account_root_after : felt
 end
 
 func modify_account{range_check_ptr}(
@@ -176,7 +187,7 @@ func hash_dict_values{pedersen_ptr : HashBuiltin*}(
     hash_dict_start=hash_dict_start)
 end
 
-func comput_merkle_roots{
+func compute_merkle_roots{
      pedersen_ptr : HashBuiltin*, range_check_ptr}(
      state : AmmState) -> (root_before, root_after):
     alloc_locals
@@ -198,7 +209,7 @@ func comput_merkle_roots{
                 account + ids.Account.token_a_balance]
             token_b_balance = memory[
                 account + ids.Account.token_b_balance]
-            initial_dict[account_id] = perdersen_hash(
+            initial_dict[account_id] = pedersen_hash(
                 pedersen_hash(public_key, token_a_balance),
                 token_b_balance)
     %}
@@ -218,4 +229,85 @@ func comput_merkle_roots{
         height=LOG_N_ACCOUNTS)
 
     return(root_before=root_before, root_after=root_after)
+end
+
+func get_transactions() -> (transactions : SwapTransaction**, number_transactions : felt):
+    alloc_locals
+    local transactions : SwapTransaction**
+    local number_transactions : felt
+    %{
+        transactions = [
+            [
+                transaction['account_id'],
+                transaction['token_a_amount'],
+            ]
+            for transaction in program_input['transactions']
+        ]
+        ids.transactions = segments.gen_arg(transactions)
+        ids.number_transactions = len(transactions)
+    %}
+    return (
+    transactions = transactions,
+    number_transactions=number_transactions)
+end
+
+func get_account_dict() -> (account_dict : DictAccess*):
+     alloc_locals
+     %{
+        account = program_input['accounts']
+        initial_dict = {
+            int(account_id_str): segments.gen_arg([
+                int(info['public_key'], 16),
+                info['token_a_balance'],
+                info['token_b_balance'],
+                ])
+                for account_id_str, info in account.items()
+
+        }
+        #save a copy of initial account dict for comput_merkle_roots
+        initial_account_dict = dict(initial_dict)
+    %}
+    #init account dict
+    let (account_dict) = dict_new()
+    return (account_dict = account_dict)
+end
+
+func main {
+     output_ptr : felt*, pedersen_ptr : HashBuiltin*,
+     range_check_ptr}():
+
+    alloc_locals
+    local state : AmmState
+    %{
+        #initialize balances using a hint
+        ids.state.token_a_balance = \
+            program_input['token_a_balance']
+        ids.state.token_b_balance = \
+            program_input['token_b_balance']
+    %}
+
+    let (account_dict) = get_account_dict()
+    assert state.account_dict_start = account_dict
+    assert state.account_dict_end = account_dict
+
+    let output = cast(output_ptr, AmmBatchOutput*)
+    let output_ptr = output_ptr + AmmBatchOutput.SIZE
+
+    assert output.token_a_before = state.token_a_balance
+    assert output.token_b_before = state.token_b_balance
+
+    let (transactions, number_transactions) = get_transactions()
+    let (state : AmmState) = transaction_loop(
+        state=state,
+        transactions=transactions,
+        number_transactions=number_transactions)
+
+    assert output.token_a_after = state.token_a_balance
+    assert output.token_b_after = state.token_b_balance
+
+    let(root_before, root_after) = compute_merkle_roots(state=state)
+    assert output.account_root_before = root_before
+    assert output.account_root_after = root_after
+
+    return()
 end

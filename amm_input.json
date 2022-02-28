@@ -1,0 +1,26 @@
+{
+    "token_a_balance": 100,
+    "token_b_balance": 1000,
+    "accounts": {
+        "0": {
+            "public_key": "0x0",
+            "token_a_balance": 123,
+            "token_b_balance": 500
+        },
+        "5": {
+            "public_key": "0x0",
+            "token_a_balance": 750,
+            "token_b_balance": 20
+        }
+    },
+    "transactions": [
+        {
+            "account_id": 5,
+            "token_a_amount": 10
+        },
+        {
+            "account_id": 0,
+            "token_a_amount": 10
+        }
+    ]
+}
