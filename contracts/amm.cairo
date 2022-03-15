@@ -1,5 +1,6 @@
 # Declare this file as a StarkNet contract and set the required
 # builtins.
+%lang starknet
 %builtins output pedersen range_check
 
 from starkware.cairo.common.cairo_builtins import HashBuiltin
@@ -10,6 +11,9 @@ from starkware.cairo.common.math import assert_nn_le
 from starkware.cairo.common.registers import get_fp_and_pc
 from starkware.cairo.common.math import unsigned_div_rem
 from starkware.cairo.common.small_merkle_tree import small_merkle_tree
+from starkware.cairo.common.alloc import alloc
+from starkware.starknet.common.syscalls import (
+    call_contract, get_contract_address, get_caller_address, CallContractResponse)
 
 #maximum amount of each token that belongs to AMM
 const MAX_BALANCE  = 2 ** 64 - 1
@@ -271,6 +275,23 @@ func get_account_dict() -> (account_dict : DictAccess*):
     let (account_dict) = dict_new()
     return (account_dict = account_dict)
 end
+
+@external
+func call_self{syscall_ptr : felt*}(selector : felt) -> (retdata_len : felt, retdata : felt*):
+    alloc_locals
+
+    let (self) = get_contract_address()
+    let (local ptr : felt*) = alloc()
+
+    let response : CallContractResponse = call_contract(self, selector, 0, ptr)
+    return (response.retdata_size, response.retdata)
+end
+
+@external
+func plus_one{syscall_ptr : felt*}(value : felt) -> (value_plus_one : felt):
+    return (value + 1)
+end
+
 
 func main {
      output_ptr : felt*, pedersen_ptr : HashBuiltin*,

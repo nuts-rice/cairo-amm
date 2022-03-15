@@ -3,7 +3,7 @@ import os
 import pytest
 
 from starkware.starknet.compiler.compile import compile_starknet_files
-from starkware.starknet.services.abi.contract_definition import ContractDefinition
+from starkware.starknet.services.api.contract_definition import ContractDefinition
 from starkware.starknet.testing.starknet import Starknet
 
 def contract_dir() -> str:
@@ -17,7 +17,7 @@ def compile_contract(contract_name: str) -> ContractDefinition:
     )
 
 @pytest.fixture(scope="module")
-def event_lop():
+def event_loop():
     return asyncio.new_event_loop()
 
 @pytest.fixture(scope="module")
